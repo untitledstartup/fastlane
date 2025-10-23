@@ -85,14 +85,14 @@ module Spaceship
         # Extending this instance to add API endpoints from these modules
         # Each of these modules adds a new setter method for an instance
         # of an ConnectAPI::APIClient
-        # These get set in set_indvidual_clients
+        # These get set in set_individual_clients
         self.extend(Spaceship::ConnectAPI::IAP::API)
         self.extend(Spaceship::ConnectAPI::TestFlight::API)
         self.extend(Spaceship::ConnectAPI::Tunes::API)
         self.extend(Spaceship::ConnectAPI::Provisioning::API)
         self.extend(Spaceship::ConnectAPI::Users::API)
 
-        set_indvidual_clients(
+        set_individual_clients(
           cookie: cookie,
           current_team_id: current_team_id,
           token: token,
@@ -157,7 +157,7 @@ module Spaceship
 
         # Updating the tunes and portal clients requires resetting
         # of the clients in the API modules
-        set_indvidual_clients(
+        set_individual_clients(
           cookie: nil,
           current_team_id: nil,
           token: nil,
@@ -168,7 +168,7 @@ module Spaceship
 
       private
 
-      def set_indvidual_clients(cookie: nil, current_team_id: nil, token: nil, tunes_client: nil, portal_client: nil)
+      def set_individual_clients(cookie: nil, current_team_id: nil, token: nil, tunes_client: nil, portal_client: nil)
         # This was added by Spaceship::ConnectAPI::IAP::API and is required
         # to be set for API methods to have a client to send request on
         if cookie || token || tunes_client
