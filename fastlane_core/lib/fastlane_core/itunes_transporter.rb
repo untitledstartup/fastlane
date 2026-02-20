@@ -327,6 +327,24 @@ module FastlaneCore
       ].compact.join(' ')
     end
 
+    def build_upload_package_command(username, password, source, apple_id:, bundle_id:,
+                                      bundle_version:, bundle_short_version_string:,
+                                      asc_public_id:, platform: "ios")
+      [
+        "xcrun altool",
+        "--upload-package #{source.shellescape}",
+        "--type #{platform == 'osx' ? 'macos' : platform}",
+        "--apple-id #{apple_id}",
+        "--bundle-id #{bundle_id.shellescape}",
+        "--bundle-version #{bundle_version.shellescape}",
+        "--bundle-short-version-string #{bundle_short_version_string.shellescape}",
+        "--asc-public-id #{asc_public_id}",
+        "-u #{username.shellescape}",
+        "-p #{password.shellescape}",
+        additional_upload_parameters
+      ].compact.join(' ')
+    end
+
     def build_provider_ids_command(username, password, jwt = nil, api_key = nil)
       use_api_key = !api_key.nil?
       [
@@ -855,6 +873,69 @@ module FastlaneCore
         UI.header("Successfully uploaded package to App Store Connect. It might take a few minutes until it's visible online.")
 
         FileUtils.rm_rf(actual_dir) unless Helper.test? # we don't need the package anymore, since the upload was successful
+      else
+        handle_error(@password)
+      end
+
+      return result
+    end
+
+    # Uploads a package to App Store Connect using altool --upload-package.
+    # This bypasses --upload-app's bundle ID resolution, working around Xcode 26.2 error -19237.
+    #
+    # @param source [String] Path to the IPA or PKG file
+    # @param apple_id [String] The numeric Apple ID of the app
+    # @param bundle_id [String] The app's bundle identifier
+    # @param bundle_version [String] The CFBundleVersion (build number)
+    # @param bundle_short_version_string [String] The CFBundleShortVersionString (app version)
+    # @param asc_public_id [String] The ASC team public ID (UUID)
+    # @param platform [String] The platform ("ios", "osx", "appletvos")
+    # @return [Bool] True if upload succeeded
+    def upload_package(source, apple_id:, bundle_id:, bundle_version:,
+                       bundle_short_version_string:, asc_public_id:, platform: "ios")
+      unless @transporter_executor.is_a?(AltoolTransporterExecutor)
+        UI.user_error!("upload_package requires the altool transporter (Xcode 14+)")
+      end
+
+      unless @user && @password
+        UI.user_error!("upload_package (altool --upload-package) requires username and password authentication, not API key")
+      end
+
+      UI.message("Going to upload package to App Store Connect using altool --upload-package")
+      UI.success("This might take a few minutes. Please don't interrupt the script.")
+
+      command = @transporter_executor.build_upload_package_command(
+        @user, @password, source,
+        apple_id: apple_id,
+        bundle_id: bundle_id,
+        bundle_version: bundle_version,
+        bundle_short_version_string: bundle_short_version_string,
+        asc_public_id: asc_public_id,
+        platform: platform
+      )
+
+      UI.verbose(@transporter_executor.build_upload_package_command(
+        @user, 'YourPassword', source,
+        apple_id: apple_id,
+        bundle_id: bundle_id,
+        bundle_version: bundle_version,
+        bundle_short_version_string: bundle_short_version_string,
+        asc_public_id: asc_public_id,
+        platform: platform
+      ))
+
+      begin
+        result = @transporter_executor.execute(command, ItunesTransporter.hide_transporter_output?)
+      rescue TransporterRequiresApplicationSpecificPasswordError => ex
+        handle_two_step_failure(ex)
+        return upload_package(source, apple_id: apple_id, bundle_id: bundle_id,
+                              bundle_version: bundle_version,
+                              bundle_short_version_string: bundle_short_version_string,
+                              asc_public_id: asc_public_id, platform: platform)
+      end
+
+      if result
+        UI.header("Successfully uploaded package to App Store Connect. It might take a few minutes until it's visible online.")
       else
         handle_error(@password)
       end

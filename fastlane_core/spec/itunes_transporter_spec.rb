@@ -149,6 +149,27 @@ describe FastlaneCore do
       ].compact.join(' ')
     end
 
+    def altool_upload_package_command(source: "/tmp/my_app.ipa", apple_id: "123456789",
+                                      bundle_id: "com.example.app", bundle_version: "42",
+                                      bundle_short_version_string: "1.0.0",
+                                      asc_public_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                                      platform: "ios")
+      escaped_password = password.shellescape
+
+      [
+        "xcrun altool",
+        "--upload-package #{source}",
+        "--type #{platform == 'osx' ? 'macos' : platform}",
+        "--apple-id #{apple_id}",
+        "--bundle-id #{bundle_id}",
+        "--bundle-version #{bundle_version}",
+        "--bundle-short-version-string #{bundle_short_version_string}",
+        "--asc-public-id #{asc_public_id}",
+        "-u #{email.shellescape}",
+        "-p #{escaped_password}"
+      ].compact.join(' ')
+    end
+
     def java_upload_command(provider_short_name: nil, transporter: nil, jwt: nil, classpath: true, use_asset_path: false)
       upload_part = use_asset_path ? "-assetFile /tmp/#{random_uuid}.ipa" : "-f /tmp/my.app.id.itmsp"
 
@@ -1198,6 +1219,46 @@ describe FastlaneCore do
         end
 
         after(:each) { ENV.delete("FASTLANE_ITUNES_TRANSPORTER_PATH") }
+      end
+
+      context "with upload_package" do
+        before(:each) do
+          allow(FastlaneCore::Helper).to receive(:itms_path).and_return(nil)
+          stub_const('ENV', { 'FASTLANE_ITUNES_TRANSPORTER_PATH' => nil })
+        end
+
+        let(:upload_package_params) do
+          {
+            apple_id: "123456789",
+            bundle_id: "com.example.app",
+            bundle_version: "42",
+            bundle_short_version_string: "1.0.0",
+            asc_public_id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            platform: "ios"
+          }
+        end
+
+        context "upload_package command generation" do
+          it 'generates a call to altool --upload-package' do
+            transporter = FastlaneCore::ItunesTransporter.new(email, password, false, nil, altool_compatible_command: true)
+            expect(transporter.upload_package("/tmp/my_app.ipa", **upload_package_params)).to eq(altool_upload_package_command)
+          end
+
+          it 'maps osx platform to macos type' do
+            transporter = FastlaneCore::ItunesTransporter.new(email, password, false, nil, altool_compatible_command: true)
+            result = transporter.upload_package("/tmp/my_app.pkg", **upload_package_params.merge(platform: "osx"))
+            expect(result).to eq(altool_upload_package_command(source: "/tmp/my_app.pkg", platform: "osx"))
+          end
+        end
+
+        context "auth validation" do
+          it 'raises error when using API key auth without username/password' do
+            transporter = FastlaneCore::ItunesTransporter.new(nil, nil, false, nil, altool_compatible_command: true, api_key: api_key)
+            expect do
+              transporter.upload_package("/tmp/my_app.ipa", **upload_package_params)
+            end.to raise_error(FastlaneCore::Interface::FastlaneError, /requires username and password/)
+          end
+        end
       end
 
       context "with api_key" do

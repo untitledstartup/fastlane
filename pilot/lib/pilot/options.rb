@@ -294,6 +294,19 @@ module Pilot
                                      description: "The provider short name to be used with the iTMSTransporter to identify your team. This value will override the automatically detected provider short name. To get provider short name run `pathToXcode.app/Contents/Applications/Application\\ Loader.app/Contents/itms/bin/iTMSTransporter -m provider -u 'USERNAME' -p 'PASSWORD' -account_type itunes_connect -v off`. The short names of providers should be listed in the second column",
                                      optional: true),
         # rubocop:enable Layout/LineLength
+        FastlaneCore::ConfigItem.new(key: :use_upload_package,
+                                     env_name: "PILOT_USE_UPLOAD_PACKAGE",
+                                     description: "Use altool --upload-package instead of --upload-app for uploading builds. " \
+                                       "This bypasses bundle ID resolution issues in Xcode 26.2+ (error -19237). " \
+                                       "Only supports username/password authentication, not API key",
+                                     type: Boolean,
+                                     default_value: false,
+                                     optional: true),
+        FastlaneCore::ConfigItem.new(key: :asc_public_id,
+                                     env_name: "PILOT_ASC_PUBLIC_ID",
+                                     description: "The public ID of your App Store Connect team (UUID format). " \
+                                       "Required when using use_upload_package. Auto-resolved from Spaceship teams if not provided",
+                                     optional: true),
 
         # waiting and uploaded build
         FastlaneCore::ConfigItem.new(key: :wait_processing_interval,

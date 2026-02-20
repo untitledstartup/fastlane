@@ -27,41 +27,13 @@ module Pilot
 
       UI.success("Ready to upload new build to TestFlight (App: #{fetch_app_id})...")
 
-      dir = Dir.mktmpdir
-
       platform = fetch_app_platform
-      ipa_path = options[:ipa]
-      if ipa_path && platform != 'osx'
-        asset_path = ipa_path
-        app_identifier = config[:app_identifier] || fetch_app_identifier
-        short_version = config[:app_version] || FastlaneCore::IpaFileAnalyser.fetch_app_version(ipa_path)
-        bundle_version = config[:build_number] || FastlaneCore::IpaFileAnalyser.fetch_app_build(ipa_path)
-        package_path = FastlaneCore::IpaUploadPackageBuilder.new.generate(app_id: fetch_app_id,
-                                                                      ipa_path: ipa_path,
-                                                                  package_path: dir,
-                                                                      platform: platform,
-                                                                app_identifier: app_identifier,
-                                                                 short_version: short_version,
-                                                                bundle_version: bundle_version)
+
+      if config[:use_upload_package]
+        upload_via_upload_package(options, platform)
       else
-        pkg_path = options[:pkg]
-        asset_path = pkg_path
-        package_path = FastlaneCore::PkgUploadPackageBuilder.new.generate(app_id: fetch_app_id,
-                                                                        pkg_path: pkg_path,
-                                                                    package_path: dir,
-                                                                        platform: platform)
+        upload_via_upload_app(options, platform)
       end
-
-      transporter = transporter_for_selected_team(options)
-      result = transporter.upload(package_path: package_path, asset_path: asset_path, platform: platform)
-
-      unless result
-        transporter_errors = transporter.displayable_errors
-        file_type = platform == "osx" ? "pkg" : "ipa"
-        UI.user_error!("Error uploading #{file_type} file: \n #{transporter_errors}")
-      end
-
-      UI.success("Successfully uploaded the new binary to App Store Connect")
 
       # We will fully skip waiting for build processing *only* if no changelog is supplied
       # Otherwise we may partially wait until the build appears so the changelog can be set, and then bail.
@@ -445,6 +417,106 @@ module Pilot
         UI.verbose("Couldn't infer a provider short name for team with id #{tunes_client.team_id} automatically: #{ex}. Proceeding without provider short name.")
         return generic_transporter
       end
+    end
+
+    def upload_via_upload_app(options, platform)
+      dir = Dir.mktmpdir
+
+      ipa_path = options[:ipa]
+      if ipa_path && platform != 'osx'
+        asset_path = ipa_path
+        app_identifier = config[:app_identifier] || fetch_app_identifier
+        short_version = config[:app_version] || FastlaneCore::IpaFileAnalyser.fetch_app_version(ipa_path)
+        bundle_version = config[:build_number] || FastlaneCore::IpaFileAnalyser.fetch_app_build(ipa_path)
+        package_path = FastlaneCore::IpaUploadPackageBuilder.new.generate(app_id: fetch_app_id,
+                                                                      ipa_path: ipa_path,
+                                                                  package_path: dir,
+                                                                      platform: platform,
+                                                                app_identifier: app_identifier,
+                                                                 short_version: short_version,
+                                                                bundle_version: bundle_version)
+      else
+        pkg_path = options[:pkg]
+        asset_path = pkg_path
+        package_path = FastlaneCore::PkgUploadPackageBuilder.new.generate(app_id: fetch_app_id,
+                                                                        pkg_path: pkg_path,
+                                                                    package_path: dir,
+                                                                        platform: platform)
+      end
+
+      transporter = transporter_for_selected_team(options)
+      result = transporter.upload(package_path: package_path, asset_path: asset_path, platform: platform)
+
+      unless result
+        transporter_errors = transporter.displayable_errors
+        file_type = platform == "osx" ? "pkg" : "ipa"
+        UI.user_error!("Error uploading #{file_type} file: \n #{transporter_errors}")
+      end
+
+      UI.success("Successfully uploaded the new binary to App Store Connect")
+    end
+
+    def upload_via_upload_package(options, platform)
+      ipa_path = options[:ipa]
+      pkg_path = options[:pkg]
+      source = (platform != 'osx') ? ipa_path : pkg_path
+      UI.user_error!("No ipa or pkg file given for upload_package") if source.nil?
+
+      app_id = fetch_app_id
+      bundle_id = config[:app_identifier] || fetch_app_identifier
+
+      if ipa_path && platform != 'osx'
+        bundle_short_version_string = config[:app_version] || FastlaneCore::IpaFileAnalyser.fetch_app_version(ipa_path)
+        bundle_version = config[:build_number] || FastlaneCore::IpaFileAnalyser.fetch_app_build(ipa_path)
+      else
+        bundle_short_version_string = config[:app_version]
+        bundle_version = config[:build_number]
+      end
+
+      UI.user_error!("app_version is required for --upload-package. Pass it via the app_version option or ensure the IPA contains CFBundleShortVersionString") if bundle_short_version_string.to_s.empty?
+      UI.user_error!("build_number is required for --upload-package. Pass it via the build_number option or ensure the IPA contains CFBundleVersion") if bundle_version.to_s.empty?
+
+      asc_public_id = resolve_asc_public_id(options)
+      UI.user_error!("asc_public_id is required for --upload-package. Pass it via the asc_public_id option or ensure Spaceship can resolve it from your team") if asc_public_id.to_s.empty?
+
+      transporter = transporter_for_selected_team(options)
+      result = transporter.upload_package(
+        source,
+        apple_id: app_id,
+        bundle_id: bundle_id,
+        bundle_version: bundle_version,
+        bundle_short_version_string: bundle_short_version_string,
+        asc_public_id: asc_public_id,
+        platform: platform
+      )
+
+      unless result
+        transporter_errors = transporter.displayable_errors
+        file_type = platform == "osx" ? "pkg" : "ipa"
+        UI.user_error!("Error uploading #{file_type} file: \n #{transporter_errors}")
+      end
+
+      UI.success("Successfully uploaded the new binary to App Store Connect")
+    end
+
+    def resolve_asc_public_id(options)
+      return options[:asc_public_id] if options[:asc_public_id].to_s.length > 0
+
+      tunes_client = Spaceship::ConnectAPI.client ? Spaceship::ConnectAPI.client.tunes_client : nil
+      return nil if tunes_client.nil?
+
+      begin
+        team = tunes_client.teams.find { |t| t['providerId'].to_s == tunes_client.team_id }
+        if team && team['publicProviderId']
+          public_id = team['publicProviderId']
+          UI.verbose("Auto-resolved asc_public_id: #{public_id}")
+          return public_id
+        end
+      rescue => ex
+        UI.verbose("Could not auto-resolve asc_public_id: #{ex}")
+      end
+
+      nil
     end
 
     def distribute_build(uploaded_build, options)

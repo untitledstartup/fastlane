@@ -883,6 +883,74 @@ describe "Build Manager" do
         end
       end
     end
+
+    describe "with use_upload_package" do
+      let(:fake_build_manager) { Pilot::BuildManager.new }
+      let(:fake_app_id) { "123456789" }
+      let(:fake_app_platform) { "ios" }
+      let(:fake_app_identifier) { "com.example.app" }
+      let(:fake_short_version) { "1.0.0" }
+      let(:fake_bundle_version) { "42" }
+      let(:fake_asc_public_id) { "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }
+      let(:upload_options) do
+        {
+          apple_id: fake_app_id,
+          app_identifier: fake_app_identifier,
+          app_version: fake_short_version,
+          build_number: fake_bundle_version,
+          asc_public_id: fake_asc_public_id,
+          use_upload_package: true,
+          skip_waiting_for_build_processing: true,
+          ipa: File.expand_path("./fastlane_core/spec/fixtures/ipas/very-capable-app.ipa")
+        }
+      end
+
+      before(:each) do
+        allow(fake_build_manager).to receive(:login)
+        allow(fake_build_manager).to receive(:fetch_app_platform).and_return(fake_app_platform)
+
+        @fake_itunestransporter = double
+        allow(@fake_itunestransporter).to receive(:upload_package).and_return(true)
+        allow(FastlaneCore::ItunesTransporter).to receive(:new).and_return(@fake_itunestransporter)
+      end
+
+      it 'calls upload_package on the transporter instead of upload' do
+        expect(@fake_itunestransporter).to receive(:upload_package).with(
+          upload_options[:ipa],
+          apple_id: fake_app_id,
+          bundle_id: fake_app_identifier,
+          bundle_version: fake_bundle_version,
+          bundle_short_version_string: fake_short_version,
+          asc_public_id: fake_asc_public_id,
+          platform: fake_app_platform
+        ).and_return(true)
+
+        expect(@fake_itunestransporter).not_to receive(:upload)
+
+        fake_build_manager.upload(upload_options)
+      end
+
+      it 'does not create an itmsp package' do
+        expect(FastlaneCore::IpaUploadPackageBuilder).not_to receive(:new)
+        expect(Dir).not_to receive(:mktmpdir)
+
+        fake_build_manager.upload(upload_options)
+      end
+
+      it 'raises error when app_version is missing and cannot be inferred' do
+        upload_options.delete(:app_version)
+        allow(FastlaneCore::IpaFileAnalyser).to receive(:fetch_app_version).and_return(nil)
+
+        expect { fake_build_manager.upload(upload_options) }.to raise_error(FastlaneCore::Interface::FastlaneError, /app_version is required/)
+      end
+
+      it 'raises error when asc_public_id is missing and cannot be resolved' do
+        upload_options.delete(:asc_public_id)
+        allow(Spaceship::ConnectAPI).to receive(:client).and_return(nil)
+
+        expect { fake_build_manager.upload(upload_options) }.to raise_error(FastlaneCore::Interface::FastlaneError, /asc_public_id is required/)
+      end
+    end
   end
 
   describe "#transporter_for_selected_team" do
