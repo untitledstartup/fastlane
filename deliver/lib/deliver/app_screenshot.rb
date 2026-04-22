@@ -245,7 +245,8 @@ module Deliver
       # iPad Pro conflict
       when [2048, 2732], [2732, 2048]
         is_2gen = path_lower.include?("app_ipad_pro_129") ||
-                  (path_lower.include?("12.9") && path_lower.include?("2nd generation")) # e.g. iPad Pro (12.9-inch) (2nd generation)
+                  (path_lower.include?("12.9")) # && path_lower.include?("2nd generation")) # e.g. iPad Pro (12.9-inch) (2nd generation)
+                  # Mighty Networks Patch: Revert to simple string match for iPad 2nd Gen to match our existing naming convention
 
         # rubocop:disable Require/MissingRequireStatement
         if is_2gen
