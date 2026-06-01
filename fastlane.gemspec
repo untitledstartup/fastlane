@@ -108,7 +108,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency('dotenv', '>= 2.1.1', '< 3.0.0')
   spec.add_dependency('bundler', '>= 1.12.0', '< 3.0.0') # Used for fastlane plugins
   spec.add_dependency('simctl', '~> 1.6.3') # Used for querying and interacting with iOS simulators
-  spec.add_dependency('jwt', '>= 2.1.0', '< 3') # Used for generating authentication tokens for App Store Connect API
+  spec.add_dependency('jwt', '>= 3.2.0') # Used for generating authentication tokens for App Store Connect API
   spec.add_dependency('google-apis-playcustomapp_v1', '~> 0.1') # Google API Client to access Custom app Publishing API
   spec.add_dependency('google-apis-androidpublisher_v3', '~> 0.3') # Google API Client to access Play Publishing API
   spec.add_dependency('google-cloud-storage', '~> 1.31') # Access Google Cloud Storage for match
