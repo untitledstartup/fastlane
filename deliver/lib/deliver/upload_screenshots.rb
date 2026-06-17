@@ -159,6 +159,18 @@ module Deliver
 
       UI.verbose('Uploading jobs are completed')
 
+      # Give App Store Connect time to make freshly-uploaded screenshots readable
+      # before we verify. Without this, ASC's eventual-consistency lag makes the
+      # verification (wait_for_complete + verify_local_screenshots_are_uploaded)
+      # falsely report just-uploaded screenshots as "missing", triggering a retry
+      # that re-uploads WITHOUT deleting and leaves duplicate screenshots live.
+      # Opt-in via env var; defaults to 0 to preserve upstream behavior.
+      settle_seconds = ENV['DELIVER_SCREENSHOT_SETTLE_SECONDS'].to_i
+      if settle_seconds.positive?
+        UI.message("Waiting #{settle_seconds}s for screenshots to settle on App Store Connect before verifying...")
+        sleep(settle_seconds)
+      end
+
       Helper.show_loading_indicator("Waiting for all the screenshots to finish being processed...")
       states = wait_for_complete(iterator, timeout_seconds)
       Helper.hide_loading_indicator
