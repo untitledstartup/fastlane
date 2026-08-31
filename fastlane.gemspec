@@ -81,7 +81,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency('multipart-post', '~> 2.0.0') # Needed for uploading builds to appetize
   spec.add_dependency('word_wrap', '~> 1.0.0') # to add line breaks for tables with long strings
 
-  spec.add_dependency('optparse', '~> 0.1.1') # Used to parse options with Commander
+  spec.add_dependency('optparse', '>= 0.1.1', '< 1.0.0') # Used to parse options with Commander # Addison: Updated this to a version that is compatible with our other gems, it matches fastlane master, we don't use this in the product code.
 
   # TTY dependencies
   spec.add_dependency('tty-screen', '>= 0.6.3', '< 1.0.0') # detect the terminal width
@@ -91,11 +91,12 @@ Gem::Specification.new do |spec|
   spec.add_dependency('babosa', '>= 1.0.3', "< 2.0.0") # library for creating human-friendly identifiers, aka "slugs"
   spec.add_dependency('colored') # colored terminal output
   spec.add_dependency('commander', '~> 4.6') # CLI parser
-  spec.add_dependency('excon', '>= 0.71.0', '< 1.0.0') # Great HTTP Client
+  spec.add_dependency('excon', '>= 0.71.0', '< 2.0.0') # Great HTTP Client
   spec.add_dependency('faraday-cookie_jar', '~> 0.0.6')
   spec.add_dependency('faraday', '~> 1.0') # The faraday gem is used for deploygate, hockey and testfairy actions.
   spec.add_dependency('faraday_middleware', '~> 1.0') # Same as faraday
   spec.add_dependency('fastimage', '>= 2.1.0', '< 3.0.0') # fetch the image sizes from the screenshots
+  spec.add_dependency('fastlane-sirp', '>= 1.0.0') # Addison: Added this to work around a login error, it matches fastlane master
   spec.add_dependency('gh_inspector', '>= 1.1.2', '< 2.0.0') # search for issues on GitHub when something goes wrong
   spec.add_dependency('highline', '~> 2.0') # user inputs (e.g. passwords)
   spec.add_dependency('json', '< 3.0.0') # Because sometimes it's just not installed
@@ -107,7 +108,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency('dotenv', '>= 2.1.1', '< 3.0.0')
   spec.add_dependency('bundler', '>= 1.12.0', '< 3.0.0') # Used for fastlane plugins
   spec.add_dependency('simctl', '~> 1.6.3') # Used for querying and interacting with iOS simulators
-  spec.add_dependency('jwt', '>= 2.1.0', '< 3') # Used for generating authentication tokens for App Store Connect API
+  spec.add_dependency('jwt', '>= 3.2.0') # Used for generating authentication tokens for App Store Connect API
   spec.add_dependency('google-apis-playcustomapp_v1', '~> 0.1') # Google API Client to access Custom app Publishing API
   spec.add_dependency('google-apis-androidpublisher_v3', '~> 0.3') # Google API Client to access Play Publishing API
   spec.add_dependency('google-cloud-storage', '~> 1.31') # Access Google Cloud Storage for match
