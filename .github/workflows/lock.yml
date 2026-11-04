@@ -10,7 +10,7 @@ permissions:
 jobs:
   lock:
     name: Lock closed and inactive issues and pull requests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_TINY_RUNNER_POST_MERGE_ARM64 || 'ubuntu-latest' }}
     steps:
       - uses: fastlane/github-actions/lock@latest
         with:
